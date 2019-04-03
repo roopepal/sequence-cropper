@@ -1,14 +1,14 @@
 import os
 from PIL import ImageTk, Image
-from tkinter import Tk, Frame, filedialog, PhotoImage, Canvas, LEFT, Button, BOTTOM
+from tkinter import Tk, Frame, filedialog, PhotoImage, Canvas, LEFT, Button, BOTTOM, Entry, Label
 
-def is_image(fn):
-    exts = [".jpg", ".jpeg", ".png", ".gif"]
-    return any(fn.endswith(ext) for ext in exts)
+def is_source_image(fn):
+    exts = [".jpg", ".jpeg", ".png", ".gif", ".JPG"]
+    return any(fn.endswith(ext) for ext in exts) and fn.count(".") == 1
 
 def list_files(path):
     with os.scandir(path) as entries:
-        return sorted([e.name for e in entries if is_image(e.name)])
+        return sorted([e.name for e in entries if is_source_image(e.name)])
 
 def interpolate_crop_areas(large, small, count, reps):
     steps = [(small[side] - large[side]) / (count - 1) for side in range(0, 4)]
@@ -30,7 +30,8 @@ def crop_images(dir, files, large, small, count, reps):
             print(area)
             image = image.crop(area)
             root, ext = os.path.splitext(save_dir + "/" + files[i])
-            image.save(root + "_cropped.jpg")
+            image.save(root + "_cropped.jpg", format="JPEG", quality=90,
+                subsampling=0)
             print(str(i+1) + " of " + str(len(files)) + " done")
 
 class CropperGUI:
@@ -45,6 +46,18 @@ class CropperGUI:
         self.button = Button(master, text="CROP", command=self.on_submit)
         self.button.configure(highlightbackground="gray20", width=30, height=2)
         self.button.pack(side=BOTTOM)
+        self.distance_count = Entry(master)
+        self.distance_count.configure(highlightbackground="gray20")
+        self.distance_count.pack(side=BOTTOM)
+        self.count_label = Label(master, text="Distance count")
+        self.count_label.configure(background="gray20", foreground="white")
+        self.count_label.pack(side=BOTTOM)
+        self.distance_reps = Entry(master)
+        self.distance_reps.configure(highlightbackground="gray20")
+        self.distance_reps.pack(side=BOTTOM)
+        self.reps_label = Label(master, text="Distance repetitions")
+        self.reps_label.configure(background="gray20", foreground="white")
+        self.reps_label.pack(side=BOTTOM)
         self.setup_canvases()
         self.setup_images()
 
@@ -96,7 +109,6 @@ class CropperGUI:
 
     def on_submit(self):
         if len(self.corners[0]) == 2 and len(self.corners[1]) == 2:
-            print("Cropping images...")
             self.corners[0][0] = self.thmb_pos_to_orig_pos(self.corners[0][0],0)
             self.corners[0][1] = self.thmb_pos_to_orig_pos(self.corners[0][1],0)
             self.corners[1][0] = self.thmb_pos_to_orig_pos(self.corners[1][0],1)
@@ -106,8 +118,14 @@ class CropperGUI:
                 self.corners[0][1][0], self.corners[0][1][1]]
             crop_small = [self.corners[1][0][0], self.corners[1][0][1],
                 self.corners[1][1][0], self.corners[1][1][1]]
+
             # TODO: add inputs for count and repetitions
-            crop_images(self.dirname, self.files, crop_large, crop_small, 12, 5)
+            count = int(self.distance_count.get())
+            reps = int(self.distance_reps.get())
+
+            print("Cropping images...")
+            crop_images(self.dirname, self.files, crop_large, crop_small,
+                count, reps)
 
     def handle_new_corners(self, corner, corners, canvas, image_idx):
         if len(corners) == 2:
